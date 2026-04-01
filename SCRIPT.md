@@ -1,152 +1,83 @@
-# I Built a News Scraper That Places Polymarket Bets Automatically
+# I Built an AI That Detects Breaking News and Front-Runs Prediction Markets
 
-## FORMAT
-Short-form vertical (Reels/TikTok/Shorts) or IG story series. Screen recording of terminal + face cam or voiceover.
+## HOOK (0-3s)
 
-## TRIGGER WORD
-PIPELINE
+**SCREEN:** Dashboard running. Trades flowing. Green on black.
 
----
-
-## HOOK (0-3 seconds)
-
-**SHOW:** Dashboard running in Ghostty with transparency. Trades flowing. Green on black.
-
-**SAY:**
-"I built an AI that reads the news and places bets on Polymarket automatically."
+"I built an AI that detects breaking news and front-runs prediction markets in under 5 seconds."
 
 ---
 
-## THE SYSTEM (3-15 seconds)
+## THE PROBLEM (3-12s)
 
-**SHOW:** Scroll through the terminal slowly. Point at specific panels.
+**SCREEN:** Show a slow RSS feed refresh. Then show a Polymarket chart that already moved.
 
-**TALKING POINTS:**
-- "Here's how it works. Five RSS feeds. TechCrunch, Reuters, Google News, Ars Technica, NYT."
-- "Every few seconds it scrapes the latest headlines."
-- "Then it pulls active prediction markets from Polymarket — real markets with real money."
+"Most trading bots scrape RSS feeds. By the time a headline hits RSS, the market has already moved. You're trading 30 minutes behind."
 
-**SHOW:** Market scanner panel — markets with prices visible.
+"And they ask Claude 'what's the probability?' — that's the wrong question. LLMs aren't calibrated probability estimators. Not against efficient markets."
 
 ---
 
-## THE BRAIN (15-30 seconds)
+## THE FIX (12-25s)
 
-**SHOW:** Scanner panel showing Claude scores vs market prices. Highlight a row where edge is detected.
+**SCREEN:** Show the V2 pipeline flow. Twitter stream → classifier → niche market → trade.
 
-**TALKING POINTS:**
-- "Here's where it gets interesting. For each market, it sends the headlines to Claude."
-- "Claude reads the news and says — 'I think there's a 78% chance this happens. The market says 62%.'"
-- "That's a 16% edge. The system flags it and places a bet."
-- "If Claude agrees with the market — no trade. It only bets when it sees something the market hasn't priced in yet."
+"So I rebuilt it from scratch. Three changes."
 
----
+"One — real-time Twitter stream instead of stale RSS. News hits us in seconds, not minutes."
 
-## THE EDGE (30-40 seconds)
+"Two — I stopped asking Claude for probabilities. Instead I ask: does this headline make the market more likely to resolve yes or no? That's a classification task. LLMs are actually good at that."
 
-**SHOW:** A specific signal row. Point at the Claude score, market price, and edge percentage.
-
-**TALKING POINTS:**
-- "This isn't random. It's comparing an AI research pipeline against crowd consensus."
-- "The market is everyone's average opinion. Claude is reading 30 headlines and forming its own."
-- "When those two disagree by more than 10% — that's the trade."
-- "Quarter-Kelly sizing. $25 max per bet. $100 daily limit. It's not gambling. It's a system."
+"Three — I only trade niche markets under $500K volume. Small crowds. Slow to reprice. That's where the edge is."
 
 ---
 
-## THE OUTPUT (40-50 seconds)
+## THE CLASSIFIER (25-35s)
 
-**SHOW:** Trade log panel. Scroll through trades — wins, losses, open positions.
+**SCREEN:** Close-up on a signal. Show the headline, the market question, direction: BULLISH, materiality: 0.82.
 
-**TALKING POINTS:**
-- "Every trade is logged. Market question. Claude's score. Market price at time of bet. Edge. Side. Amount."
-- "Full audit trail. You can see exactly why it made every decision."
-- "Win rate sitting at [read from dashboard]. PnL [read from dashboard]."
+"Here's what it looks like. Breaking headline comes in from Twitter. Claude reads it and says — bullish, materiality 0.82. That means this news is highly material to the market outcome."
 
----
+"The market is priced at 0.45. Claude says bullish with high conviction. That's the signal."
 
-## THE BUILD (50-60 seconds)
-
-**SHOW:** Quick flash of the file structure in terminal. `ls` the project directory.
-
-**TALKING POINTS:**
-- "The whole thing is Python. About 900 lines across 10 files."
-- "Scraper. Scorer. Edge detector. Executor. Logger. Dashboard."
-- "Modular. Swap out the news sources. Change the scoring model. Adjust the threshold."
-- "Took an afternoon to build."
+"News to trade in under 5 seconds."
 
 ---
 
-## CTA (60-70 seconds)
+## THE NICHE FILTER (35-42s)
 
-**SHOW:** Dashboard running. Or cut to face cam.
+**SCREEN:** Show `python cli.py niche` output — the 24 niche markets.
 
-**SAY:**
-"I'm giving away the full pipeline. Every file. Setup guide. One command to install."
+"I'm not competing on 'Will Trump win?' — that market has $12 million in volume and a hundred bots. Zero edge."
+
+"I'm trading this." *Point at a niche market.* "$98K volume. Small crowd. When news drops that moves this market — I'm first."
+
+---
+
+## THE BACKTEST (42-50s)
+
+**SCREEN:** Show `python cli.py backtest` output with results.
+
+"But I don't just trust it. There's a built-in backtest engine. It replays resolved markets through the classifier and tells you if the strategy actually works before you risk a dollar."
+
+"And a calibration tracker that measures accuracy over time. If it drops below 55% — it auto-pauses."
+
+---
+
+## THE STACK (50-58s)
+
+**SCREEN:** Quick flash of the file structure.
+
+"The whole thing is Python. Event-driven with asyncio. Twitter WebSocket for news. Polymarket WebSocket for prices. Claude Haiku for classification — fast and cheap."
+
+"16 files. One command to set up."
+
+---
+
+## CTA (58-65s)
+
+**SCREEN:** Dashboard running. Or face cam.
+
+"I'm giving away the full pipeline. Every file. Setup guide. Backtest engine. One command to install."
 
 "DM me the word PIPELINE and I'll send you the repo."
-
----
-
-## SCREEN RECORDING CHECKLIST
-
-Before you hit record:
-
-1. `cd ~/Desktop/PROJECTS/polymarket-pipeline`
-2. `git checkout demo`
-3. `source .venv/bin/activate`
-4. `python cli.py dashboard --speed 5`
-5. Wait 15-20 seconds for trades to build up
-6. Start recording
-
-Ghostty settings for maximum visual impact:
-- Background opacity 0.3-0.5 (shows desktop blur)
-- Terminal fills most of the screen
-- No other windows visible
-
-After recording:
-- `git checkout main` (back to lead magnet branch)
-
----
-
-## STORY SERIES VERSION (if splitting into slides)
-
-**Slide 1 (Hook):** Dashboard screenshot. Text overlay: "I built an AI that bets on Polymarket automatically."
-
-**Slide 2 (The Scraper):** "It scrapes 5 news sources every 60 seconds."
-
-**Slide 3 (The Brain):** "Feeds the headlines to Claude. Gets a confidence score."
-
-**Slide 4 (The Edge):** "Compares Claude's score against the market. When they disagree by 10%+ — it bets."
-
-**Slide 5 (The Output):** Screenshot of trade log. "Every trade logged. Full audit trail."
-
-**Slide 6 (CTA):** "DM me PIPELINE for the full repo + setup guide."
-
----
-
-## OPTIONAL B-ROLL SHOTS
-
-- Terminal scrolling with trades flowing
-- Close-up of a specific signal being detected (green highlight)
-- The `python cli.py verify` output showing all checks passing
-- Split screen: news headline on left, trade being placed on right
-- The PDF setup guide being opened
-
----
-
-## CAPTION
-
-I built a news scraper that places Polymarket bets automatically.
-
-It scrapes 5 RSS feeds. Sends headlines to Claude. Gets a confidence score on every active prediction market.
-
-When Claude's score diverges from the market price by 10%+ — it bets.
-
-Quarter-Kelly sizing. $25 max. Full audit trail.
-
-900 lines of Python. Took an afternoon.
-
-DM me "PIPELINE" for the full repo + setup guide.
-
-#ai #python #polymarket #predictionmarkets #claude #automation #trading #buildinpublic

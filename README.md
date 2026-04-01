@@ -1,20 +1,33 @@
-# Polymarket Pipeline
+# Polymarket Pipeline V2
 
-An AI-powered news scraper that reads real-time headlines, scores confidence on Polymarket prediction markets using Claude, and places bets automatically when it finds edge.
+An AI-powered breaking news detector that classifies events against prediction markets and trades automatically when it finds edge.
 
 ```
-RSS News Feeds → Claude Confidence Scoring → Edge Detection → Auto Trade Execution
+Breaking News (Twitter / Telegram / RSS)
+        ↓ (< 5 seconds)
+Match to niche markets (< $500K volume)
+        ↓
+Claude Classification: bullish / bearish / neutral + materiality
+        ↓
+Edge detection + quarter-Kelly sizing
+        ↓
+Instant execution → SQLite log → calibration tracking
 ```
 
-The pipeline scrapes 5 news sources, fetches active Polymarket markets, asks Claude "given these headlines, what's the probability this resolves YES?", and when Claude's confidence diverges from the market price by 10%+ — it bets.
+## What Changed From V1
 
-Everything is logged. Every trade, every reasoning chain, every headline that informed the decision.
+V1 scraped RSS feeds (5-60 min delay), asked Claude "what's the probability?" (wrong question for LLMs), and competed on high-volume markets (where every bot already operates).
+
+V2 inverts all three:
+- **Speed**: Real-time Twitter/Telegram streams instead of stale RSS
+- **Classification**: Claude classifies "bullish or bearish?" instead of estimating probability — a task LLMs are actually good at
+- **Niche markets**: Only trades markets under $500K volume where the crowd is small and slow
 
 ---
 
 ## Setup (2 minutes)
 
-### Option A: One-Command Setup
+### One-Command Setup
 
 ```bash
 git clone https://github.com/brodyautomates/polymarket-pipeline.git
@@ -22,14 +35,7 @@ cd polymarket-pipeline
 bash setup.sh
 ```
 
-The setup script will:
-- Check your Python version
-- Create a virtual environment
-- Install all dependencies
-- Walk you through entering API keys
-- Verify everything works
-
-### Option B: Manual Setup
+### Manual Setup
 
 ```bash
 git clone https://github.com/brodyautomates/polymarket-pipeline.git
@@ -40,155 +46,153 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then open `.env` and add your keys:
+Add your keys to `.env`:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...    # Required — get one at console.anthropic.com
-NEWSAPI_KEY=...                  # Optional — broader news coverage (newsapi.org)
-POLYMARKET_API_KEY=...           # Optional — only needed for live trading
+ANTHROPIC_API_KEY=sk-ant-...         # Required
+TWITTER_BEARER_TOKEN=...             # Optional — real-time news stream
+TELEGRAM_BOT_TOKEN=...               # Optional — channel monitoring
+POLYMARKET_API_KEY=...               # Optional — live trading only
 ```
 
-### Verify Your Setup
+### Verify
 
 ```bash
 python cli.py verify
 ```
 
-This checks every connection — Python version, dependencies, API keys, news scraper, Polymarket API, database. Fix anything marked FAIL before running the pipeline.
-
 ---
 
 ## How to Use
 
-### Run the Pipeline
+### V2: Event-Driven Pipeline (Recommended)
 
 ```bash
-# Dry-run (default) — scans markets, scores with Claude, logs what it would bet
-python cli.py run
+# Start the real-time pipeline — monitors news streams, classifies, trades
+python cli.py watch
 
-# Scan more markets, look further back for news
-python cli.py run --max 15 --hours 12
-
-# Enable real trading (requires Polymarket credentials)
-python cli.py run --live
-
-# Lower the edge threshold (more trades, less conviction)
-python cli.py run --threshold 0.08
+# Enable live trading
+python cli.py watch --live
 ```
 
-### Launch the Live Dashboard
+The `watch` command runs indefinitely. It connects to your configured news sources (Twitter, Telegram, RSS fallback), matches breaking headlines to niche Polymarket markets, classifies each with Claude, and executes trades when it finds edge.
+
+### V1: Synchronous Pipeline
+
+```bash
+# Single scan — scrape RSS, score markets, log signals
+python cli.py run
+
+python cli.py run --max 15 --hours 12
+```
+
+### Live Dashboard
 
 ```bash
 python cli.py dashboard
 ```
 
-Full-screen terminal dashboard showing the pipeline scanning markets in real-time. News ticker, market scanner, trade log, performance stats — all updating live.
+### Backtest
 
 ```bash
-# Faster scan cycles (every 30 seconds instead of 60)
-python cli.py dashboard --speed 30
+# Validate the V2 strategy against resolved markets
+python cli.py backtest
+
+python cli.py backtest --limit 50 --category ai
 ```
 
-### Other Commands
+### All Commands
 
-```bash
-python cli.py scrape         # Test news scraper — see what headlines it pulls
-python cli.py markets        # Browse active Polymarket markets with prices
-python cli.py trades         # View your trade log
-python cli.py stats          # Performance statistics
-```
-
----
-
-## How It Works
-
-### 1. News Scraping (`scraper.py`)
-Pulls headlines from 5 RSS feeds — Google News (AI), TechCrunch, Ars Technica, The Verge, NYT Technology. Optional NewsAPI integration for broader coverage. Deduplicates by headline similarity, filters by recency.
-
-### 2. Market Fetching (`markets.py`)
-Fetches active markets from Polymarket's Gamma API, sorted by volume. Categorizes each market (AI, crypto, politics, technology, science) by keyword matching on the question text.
-
-### 3. Confidence Scoring (`scorer.py`)
-For each market, filters relevant headlines and sends them to Claude with the prompt: *"Given these news articles, what is the probability that [market question] resolves YES?"*
-
-Claude returns a confidence score (0.0–1.0) and a reasoning summary. The prompt explicitly tells Claude NOT to anchor to the current market price — we want an independent estimate.
-
-### 4. Edge Detection (`edge.py`)
-Compares Claude's confidence against the market's implied probability (YES token price). If they diverge by more than the threshold (default 10%), that's a signal.
-
-- Claude says 0.75, market says 0.55 → **+20% edge → BUY YES**
-- Claude says 0.30, market says 0.55 → **-25% edge → BUY NO**
-
-Position sizing uses quarter-Kelly criterion — conservative enough to survive variance.
-
-### 5. Trade Execution (`executor.py`)
-In dry-run mode: logs what it would have bet. In live mode: places limit orders through Polymarket's CLOB API. Safety rails enforce max bet ($25), daily loss limit ($100), and halt on breach.
-
-### 6. Logging (`logger.py`)
-Every signal is logged to SQLite — market question, Claude's score, market price, edge, side, amount, reasoning, and the headlines that informed the decision. Full audit trail.
+| Command | What it does |
+|---|---|
+| `python cli.py watch` | V2: Real-time event-driven pipeline |
+| `python cli.py run` | V1: Synchronous RSS-based pipeline |
+| `python cli.py dashboard` | Live terminal dashboard |
+| `python cli.py backtest` | Backtest against resolved markets |
+| `python cli.py calibrate` | Classification accuracy report |
+| `python cli.py niche` | Browse niche markets (volume-filtered) |
+| `python cli.py verify` | Check all API keys and connections |
+| `python cli.py scrape` | Test news scraper |
+| `python cli.py markets` | Browse all active markets |
+| `python cli.py trades` | View trade log |
+| `python cli.py stats` | Performance + latency + calibration stats |
 
 ---
 
 ## Architecture
 
+### V2 Pipeline (Event-Driven)
+
 ```
-scraper.py      News ingestion — RSS feeds + NewsAPI
-markets.py      Polymarket market data — Gamma API + CLOB fallback
-scorer.py       Claude confidence scoring engine
-edge.py         Edge detection + Kelly criterion position sizing
-executor.py     Trade execution — dry-run + live CLOB orders
-logger.py       SQLite trade log + performance tracking
-pipeline.py     Full pipeline orchestrator
-dashboard.py    Live terminal dashboard (Bloomberg Terminal style)
-cli.py          CLI interface — run, dashboard, verify, scrape, markets, trades, stats
-config.py       All settings, thresholds, RSS sources
+news_stream.py      Real-time news — Twitter API v2, Telegram, RSS fallback
+market_watcher.py   Polymarket WebSocket — live prices, niche filter, momentum
+classifier.py       Claude classification — bullish/bearish/neutral + materiality
+matcher.py          Routes breaking news to relevant markets
+edge.py             Edge detection + Kelly sizing (V2: classification-based)
+executor.py         Trade execution — dry-run + live CLOB orders (async)
+pipeline.py         Event-driven orchestrator (asyncio)
+calibrator.py       Tracks classification accuracy over time
+backtest.py         Historical replay for strategy validation
 ```
+
+### Shared Infrastructure
+
+```
+logger.py           SQLite — trades, news events, calibration, latency tracking
+config.py           All settings, API keys, thresholds
+dashboard.py        Bloomberg Terminal-style live dashboard
+cli.py              CLI — watch, run, backtest, calibrate, niche, verify, etc.
+```
+
+---
+
+## How It Actually Works
+
+### 1. News Detection
+Real-time streams from Twitter (filtered by keywords: OpenAI, Bitcoin, Fed rate, etc.), Telegram channels, and RSS fallback. Events are deduplicated and timestamped with receive latency.
+
+### 2. Market Matching
+Each headline is matched to active niche markets (<$500K volume) by keyword overlap. Only relevant markets proceed to classification.
+
+### 3. Classification (The Key Shift)
+Instead of "what's the probability?", Claude is asked: *"Does this news make the market MORE likely to resolve YES, MORE likely to resolve NO, or is it NOT RELEVANT?"*
+
+This is a classification task — something LLMs are genuinely good at. Claude also rates materiality (0-1): how much should this move the price?
+
+### 4. Edge Detection
+If direction is bullish/bearish AND materiality exceeds threshold (default 0.6) AND the market price has room to move — that's a signal. Position sizing uses quarter-Kelly.
+
+### 5. Execution
+Dry-run by default. Live mode places orders via Polymarket CLOB API. Safety: $25 max bet, $100 daily limit.
+
+### 6. Calibration
+Every trade is tracked. As markets resolve, the system measures whether its classifications were correct. Accuracy by source and category informs future confidence.
 
 ---
 
 ## Configuration
 
-All settings live in `.env`:
-
 | Setting | Default | What it does |
 |---|---|---|
 | `DRY_RUN` | `true` | Set to `false` for live trading |
-| `MAX_BET_USD` | `25` | Maximum single bet size |
+| `MAX_BET_USD` | `25` | Maximum single bet |
 | `DAILY_LOSS_LIMIT_USD` | `100` | Pipeline halts if breached |
-| `EDGE_THRESHOLD` | `0.10` | Minimum divergence to trigger a trade (10%) |
-
-RSS feeds and market categories are configured in `config.py`.
+| `EDGE_THRESHOLD` | `0.10` | Minimum edge to trigger trade |
+| `MAX_VOLUME_USD` | `500000` | Only trade markets below this volume |
+| `MIN_VOLUME_USD` | `1000` | Skip dead markets |
+| `MATERIALITY_THRESHOLD` | `0.6` | Minimum materiality to act on |
+| `SPEED_TARGET_SECONDS` | `5` | Target news-to-trade latency |
 
 ---
 
 ## Safety
 
-- **Dry-run mode is ON by default.** The pipeline logs everything but places zero real trades until you explicitly enable `--live`.
-- **$25 max single bet.** Configurable, but you have to change it intentionally.
-- **$100 daily loss limit.** Pipeline stops executing if you hit this.
-- **Quarter-Kelly sizing.** Conservative position sizing that survives bad streaks.
-- **API keys never leave your machine.** `.env` is gitignored. Nothing is sent anywhere except the APIs you configure.
-
----
-
-## Requirements
-
-- Python 3.9+
-- Anthropic API key (for Claude confidence scoring)
-- Polymarket account + API credentials (only for live trading — everything else works without it)
-
----
-
-## What You Can Build From Here
-
-This is a working foundation. Some ideas:
-
-- **Add more news sources** — Reddit, Twitter/X API, Telegram channels, SEC filings
-- **Smarter scoring** — feed Claude the full article text, not just headlines
-- **Multi-model consensus** — score with Claude + GPT-4 + Gemini, only bet when all agree
-- **Portfolio tracking** — monitor open positions, auto-exit when edge disappears
-- **Cron job** — run the pipeline every hour automatically
-- **Backtest engine** — score historical markets against historical news, measure calibration
+- Dry-run mode ON by default
+- $25 max single bet, $100 daily limit
+- Quarter-Kelly position sizing
+- Niche market filter prevents competing against sophisticated bots
+- Calibration tracking — auto-detects if strategy accuracy drops
+- All API keys in `.env`, never committed
 
 ---
 

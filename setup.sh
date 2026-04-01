@@ -1,5 +1,5 @@
 #!/bin/bash
-# Polymarket Pipeline — One-Command Setup
+# Polymarket Pipeline V2 — One-Command Setup
 # Usage: bash setup.sh
 
 set -e
@@ -11,8 +11,8 @@ NC='\033[0m'
 BOLD='\033[1m'
 
 echo ""
-echo -e "${GREEN}${BOLD}  POLYMARKET PIPELINE — SETUP${NC}"
-echo -e "${GREEN}  News Scraper + AI Confidence Scorer + Auto Trader${NC}"
+echo -e "${GREEN}${BOLD}  POLYMARKET PIPELINE V2 — SETUP${NC}"
+echo -e "${GREEN}  Breaking News Detector + AI Classifier + Niche Market Trader${NC}"
 echo ""
 
 # --- Check Python ---
@@ -22,7 +22,6 @@ for cmd in python3.12 python3.11 python3.10 python3; do
         version=$($cmd --version 2>&1 | awk '{print $2}')
         major=$(echo "$version" | cut -d. -f1)
         minor=$(echo "$version" | cut -d. -f2)
-        patch=$(echo "$version" | cut -d. -f3)
         if [ "$major" -ge 3 ] && [ "$minor" -ge 9 ]; then
             PYTHON=$cmd
             break
@@ -68,8 +67,22 @@ else
     read -p "   Enter your Anthropic API key: " ANTHROPIC_KEY
     echo ""
 
+    # Twitter (optional)
+    echo -e "${YELLOW}2. Twitter API v2 Bearer Token${NC} (optional — enables real-time news stream)"
+    read -p "   Enter Twitter bearer token (or press Enter to skip): " TWITTER_KEY
+    echo ""
+
+    # Telegram (optional)
+    echo -e "${YELLOW}3. Telegram Bot Token${NC} (optional — enables channel monitoring)"
+    read -p "   Enter Telegram bot token (or press Enter to skip): " TELEGRAM_KEY
+    TELEGRAM_CHANNELS=""
+    if [ -n "$TELEGRAM_KEY" ]; then
+        read -p "   Enter channel IDs (comma-separated, or Enter to skip): " TELEGRAM_CHANNELS
+    fi
+    echo ""
+
     # Polymarket (optional)
-    echo -e "${YELLOW}2. Polymarket API Credentials${NC} (optional — needed only for live trading)"
+    echo -e "${YELLOW}4. Polymarket API Credentials${NC} (optional — needed only for live trading)"
     read -p "   Enter Polymarket API key (or press Enter to skip): " POLY_KEY
     POLY_SECRET=""
     POLY_PASS=""
@@ -82,22 +95,29 @@ else
     echo ""
 
     # NewsAPI (optional)
-    echo -e "${YELLOW}3. NewsAPI Key${NC} (optional — broader news coverage, get one at newsapi.org)"
+    echo -e "${YELLOW}5. NewsAPI Key${NC} (optional — broader RSS coverage, newsapi.org)"
     read -p "   Enter NewsAPI key (or press Enter to skip): " NEWSAPI
     echo ""
 
     # Write .env
     cat > .env << ENVEOF
-# Anthropic
+# Anthropic (required)
 ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
 
-# Polymarket CLOB API
+# Twitter API v2 (optional — real-time news)
+TWITTER_BEARER_TOKEN=${TWITTER_KEY}
+
+# Telegram (optional — channel monitoring)
+TELEGRAM_BOT_TOKEN=${TELEGRAM_KEY}
+TELEGRAM_CHANNEL_IDS=${TELEGRAM_CHANNELS}
+
+# Polymarket CLOB API (optional — live trading)
 POLYMARKET_API_KEY=${POLY_KEY}
 POLYMARKET_API_SECRET=${POLY_SECRET}
 POLYMARKET_API_PASSPHRASE=${POLY_PASS}
 POLYMARKET_PRIVATE_KEY=${POLY_PRIV}
 
-# Optional: NewsAPI.org
+# NewsAPI.org (optional)
 NEWSAPI_KEY=${NEWSAPI}
 
 # Pipeline Settings
@@ -105,6 +125,12 @@ DRY_RUN=true
 MAX_BET_USD=25
 DAILY_LOSS_LIMIT_USD=100
 EDGE_THRESHOLD=0.10
+
+# V2 Settings
+MAX_VOLUME_USD=500000
+MIN_VOLUME_USD=1000
+MATERIALITY_THRESHOLD=0.6
+SPEED_TARGET_SECONDS=5
 ENVEOF
 
     echo -e "${GREEN}✓${NC} .env file created"
@@ -121,7 +147,8 @@ echo -e "${GREEN}${BOLD}  SETUP COMPLETE${NC}"
 echo ""
 echo "  Next steps:"
 echo "    source .venv/bin/activate"
-echo "    python cli.py run              # Run the pipeline (dry-run)"
-echo "    python cli.py dashboard        # Launch live dashboard"
-echo "    python cli.py run --live       # Enable real trading"
+echo "    python cli.py watch             # V2: Real-time event-driven pipeline"
+echo "    python cli.py run               # V1: Synchronous pipeline"
+echo "    python cli.py dashboard         # Live terminal dashboard"
+echo "    python cli.py backtest          # Validate strategy first"
 echo ""
