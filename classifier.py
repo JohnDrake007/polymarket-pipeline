@@ -1,22 +1,18 @@
 """
-Claude classification engine — replaces probability estimation with direction classification.
-Asks "does this news confirm or deny the market question?" instead of "what's the probability?"
+Gemini classification engine that replaces probability estimation with
+direction classification.
 """
 from __future__ import annotations
 
-import json
-import time
 import logging
+import time
 from dataclasses import dataclass
 
-import anthropic
-
 import config
+from gemini_client import generate_json
 from markets import Market
 
 log = logging.getLogger(__name__)
-
-client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
 CLASSIFICATION_PROMPT = """You are a news classifier for prediction markets.
 
@@ -33,7 +29,7 @@ Source: {source}
 ## Task
 Does this news make the market question MORE likely to resolve YES, MORE likely to resolve NO, or is it NOT RELEVANT?
 
-Also rate the MATERIALITY — how much should this move the price? 0.0 means no impact, 1.0 means this is definitive evidence.
+Also rate the MATERIALITY. 0.0 means no impact, 1.0 means this is definitive evidence.
 
 Respond with ONLY valid JSON:
 {{
@@ -41,6 +37,23 @@ Respond with ONLY valid JSON:
   "materiality": <float 0.0 to 1.0>,
   "reasoning": "<1 sentence>"
 }}"""
+
+CLASSIFICATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "direction": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+        },
+        "materiality": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+        },
+        "reasoning": {"type": "string"},
+    },
+    "required": ["direction", "materiality", "reasoning"],
+}
 
 
 @dataclass
@@ -53,7 +66,7 @@ class Classification:
 
 
 def classify(headline: str, market: Market, source: str = "unknown") -> Classification:
-    """Classify a news headline against a market question. Synchronous."""
+    """Classify a news headline against a market question."""
     start = time.time()
 
     prompt = CLASSIFICATION_PROMPT.format(
@@ -64,34 +77,24 @@ def classify(headline: str, market: Market, source: str = "unknown") -> Classifi
     )
 
     try:
-        response = client.messages.create(
+        result = generate_json(
             model=config.CLASSIFICATION_MODEL,
-            max_tokens=200,
+            prompt=prompt,
+            schema=CLASSIFICATION_SCHEMA,
             temperature=0.1,
-            messages=[{"role": "user", "content": prompt}],
         )
-        text = response.content[0].text.strip()
-
-        # Extract JSON
-        if "```" in text:
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-
-        result = json.loads(text)
         latency = int((time.time() - start) * 1000)
 
         direction = result.get("direction", "neutral")
         if direction not in ("bullish", "bearish", "neutral"):
             direction = "neutral"
 
-        materiality = max(0.0, min(1.0, float(result.get("materiality", 0))))
+        materiality = max(0.0, min(1.0, float(result.get("materiality", 0.0))))
 
         return Classification(
             direction=direction,
             materiality=materiality,
-            reasoning=result.get("reasoning", ""),
+            reasoning=str(result.get("reasoning", "")),
             latency_ms=latency,
             model=config.CLASSIFICATION_MODEL,
         )
@@ -111,6 +114,7 @@ def classify(headline: str, market: Market, source: str = "unknown") -> Classifi
 async def classify_async(headline: str, market: Market, source: str = "unknown") -> Classification:
     """Async wrapper around classify()."""
     import asyncio
+
     return await asyncio.get_event_loop().run_in_executor(
         None, classify, headline, market, source
     )

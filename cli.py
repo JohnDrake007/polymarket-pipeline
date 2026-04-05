@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 """
-Polymarket Pipeline — CLI Interface
+Polymarket Pipeline CLI interface.
 
 Usage:
-    python cli.py watch                # V2: Event-driven pipeline (real-time news → classify → trade)
-    python cli.py watch --live         # V2: With live trading
-    python cli.py run                  # V1: Synchronous pipeline (RSS → score → trade)
-    python cli.py run --live           # V1: With live trading
-    python cli.py dashboard            # Launch live terminal dashboard
-    python cli.py backtest             # Backtest V2 strategy against resolved markets
-    python cli.py calibrate            # Show classification accuracy report
-    python cli.py niche                # Browse niche markets (< $500K volume)
-    python cli.py verify               # Check all API keys and connections
-    python cli.py scrape               # Test news scraper only
-    python cli.py markets              # Browse all active markets
-    python cli.py trades               # View trade log
-    python cli.py stats                # Performance statistics
+    python cli.py watch
+    python cli.py watch --live
+    python cli.py run
+    python cli.py run --live
+    python cli.py dashboard
+    python cli.py backtest
+    python cli.py calibrate
+    python cli.py niche
+    python cli.py verify
+    python cli.py scrape
+    python cli.py markets
+    python cli.py trades
+    python cli.py stats
 """
 
 import argparse
+import importlib
 import sys
 
 from rich.console import Console
@@ -28,7 +29,7 @@ console = Console()
 
 
 def cmd_watch(args):
-    """V2: Event-driven pipeline — real-time news → classify → trade."""
+    """V2: Event-driven pipeline with real-time news."""
     import config
     from pipeline import run_pipeline_v2
 
@@ -45,7 +46,7 @@ def cmd_watch(args):
 
 
 def cmd_run(args):
-    """V1: Synchronous pipeline — RSS → score → trade."""
+    """V1: Synchronous pipeline."""
     import config
     from pipeline import run_pipeline
 
@@ -67,6 +68,7 @@ def cmd_run(args):
 def cmd_backtest(args):
     """Run backtest against resolved markets."""
     from backtest import run_backtest
+
     run_backtest(limit=args.limit, category=args.category)
 
 
@@ -82,18 +84,18 @@ def cmd_calibrate(args):
 
     report = get_report()
 
-    console.print(Panel(f"[bold]CALIBRATION REPORT[/bold]", style="bright_cyan"))
+    console.print(Panel("[bold]CALIBRATION REPORT[/bold]", style="bright_cyan"))
     console.print(f"  Total resolved: {report.total}")
     console.print(f"  Accuracy: {report.accuracy:.1f}%")
 
     if report.by_source:
-        console.print(f"\n  [bold]By Source:[/bold]")
+        console.print("\n  [bold]By Source:[/bold]")
         for source, acc in report.by_source.items():
             color = "bright_green" if acc >= 55 else ("yellow" if acc >= 45 else "red")
             console.print(f"    {source}: [{color}]{acc:.1f}%[/{color}]")
 
     if report.by_classification:
-        console.print(f"\n  [bold]By Classification:[/bold]")
+        console.print("\n  [bold]By Classification:[/bold]")
         for cls, acc in report.by_classification.items():
             color = "bright_green" if acc >= 55 else ("yellow" if acc >= 45 else "red")
             console.print(f"    {cls}: [{color}]{acc:.1f}%[/{color}]")
@@ -102,7 +104,7 @@ def cmd_calibrate(args):
 
 
 def cmd_niche(args):
-    """Browse niche markets only (volume-filtered)."""
+    """Browse niche markets only."""
     import config
     from markets import fetch_active_markets, filter_by_categories
 
@@ -113,7 +115,10 @@ def cmd_niche(args):
         if config.MIN_VOLUME_USD <= m.volume <= config.MAX_VOLUME_USD
     ]
 
-    console.print(f"\n[bold]{len(niche)} niche markets[/bold] (${config.MIN_VOLUME_USD:,.0f} - ${config.MAX_VOLUME_USD:,.0f} volume)\n")
+    console.print(
+        f"\n[bold]{len(niche)} niche markets[/bold] "
+        f"(${config.MIN_VOLUME_USD:,.0f} - ${config.MAX_VOLUME_USD:,.0f} volume)\n"
+    )
 
     table = Table(show_header=True, header_style="bold cyan")
     table.add_column("Category", width=12)
@@ -122,13 +127,13 @@ def cmd_niche(args):
     table.add_column("NO", justify="right")
     table.add_column("Volume", justify="right")
 
-    for m in niche[:30]:
+    for market in niche[:30]:
         table.add_row(
-            m.category,
-            m.question[:50],
-            f"{m.yes_price:.2f}",
-            f"{m.no_price:.2f}",
-            f"${m.volume:,.0f}",
+            market.category,
+            market.question[:50],
+            f"{market.yes_price:.2f}",
+            f"{market.no_price:.2f}",
+            f"${market.volume:,.0f}",
         )
 
     console.print(table)
@@ -136,17 +141,20 @@ def cmd_niche(args):
 
 def cmd_dashboard(args):
     from dashboard import run_dashboard
+
     run_dashboard(scan_interval=args.speed)
 
 
 def cmd_verify(args):
     """Check all API keys and connections work."""
+    import os
+
+    import config
     from rich.panel import Panel
 
-    console.print(Panel("[bold]POLYMARKET PIPELINE V2 — VERIFICATION[/bold]", style="bright_green"))
+    console.print(Panel("[bold]POLYMARKET PIPELINE V2 - VERIFICATION[/bold]", style="bright_green"))
     all_good = True
 
-    # 1. Python version
     v = sys.version_info
     py_ok = v.major == 3 and v.minor >= 9
     status = "[bright_green]PASS[/bright_green]" if py_ok else "[red]FAIL[/red]"
@@ -154,102 +162,92 @@ def cmd_verify(args):
     if not py_ok:
         all_good = False
 
-    # 2. Dependencies
     deps_ok = True
-    for mod in ["anthropic", "feedparser", "httpx", "rich", "dotenv", "websockets", "tweepy", "aiohttp"]:
+    for mod in ["google.genai", "feedparser", "httpx", "rich", "dotenv", "websockets", "tweepy", "aiohttp"]:
         try:
-            __import__(mod)
+            importlib.import_module(mod)
         except ImportError:
             console.print(f"  [red]FAIL[/red]  Missing module: {mod}")
             deps_ok = False
             all_good = False
     if deps_ok:
-        console.print(f"  [bright_green]PASS[/bright_green]  All dependencies installed")
+        console.print("  [bright_green]PASS[/bright_green]  All dependencies installed")
 
-    # 3. .env exists
-    import os
     env_exists = os.path.exists(os.path.join(os.path.dirname(__file__), ".env"))
-    status = "[bright_green]PASS[/bright_green]" if env_exists else "[red]FAIL[/red] — run: cp .env.example .env"
+    status = "[bright_green]PASS[/bright_green]" if env_exists else "[red]FAIL[/red] - run: cp .env.example .env"
     console.print(f"  {status}  .env file")
     if not env_exists:
         all_good = False
 
-    # 4. Anthropic API key
-    import config
-    has_key = bool(config.ANTHROPIC_API_KEY) and config.ANTHROPIC_API_KEY != "sk-ant-..."
+    has_key = bool(config.GEMINI_API_KEY) and config.GEMINI_API_KEY != "your-gemini-api-key"
     if has_key:
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=10,
-                messages=[{"role": "user", "content": "Say OK"}],
+            from google import genai
+
+            client = genai.Client(api_key=config.GEMINI_API_KEY)
+            response = client.models.generate_content(
+                model=config.CLASSIFICATION_MODEL,
+                contents="Say OK",
             )
-            console.print(f"  [bright_green]PASS[/bright_green]  Anthropic API key (verified)")
+            if not (response.text or "").strip():
+                raise RuntimeError("Empty response from Gemini")
+            console.print("  [bright_green]PASS[/bright_green]  Gemini API key (verified)")
         except Exception as e:
-            console.print(f"  [red]FAIL[/red]  Anthropic API key — {type(e).__name__}: {e}")
+            console.print(f"  [red]FAIL[/red]  Gemini API key - {type(e).__name__}: {e}")
             all_good = False
     else:
-        console.print(f"  [red]FAIL[/red]  Anthropic API key not set")
+        console.print("  [red]FAIL[/red]  Gemini API key not set")
         all_good = False
 
-    # 5. News scraper (RSS)
     try:
         from scraper import scrape_rss
+
         items = scrape_rss(config.RSS_FEEDS[0], 12)
         console.print(f"  [bright_green]PASS[/bright_green]  RSS scraper ({len(items)} headlines)")
     except Exception as e:
-        console.print(f"  [yellow]WARN[/yellow]  RSS scraper — {e}")
+        console.print(f"  [yellow]WARN[/yellow]  RSS scraper - {e}")
 
-    # 6. Twitter API (optional)
-    has_twitter = bool(config.TWITTER_BEARER_TOKEN)
-    if has_twitter:
-        console.print(f"  [bright_green]PASS[/bright_green]  Twitter bearer token set")
+    if config.TWITTER_BEARER_TOKEN:
+        console.print("  [bright_green]PASS[/bright_green]  Twitter bearer token set")
     else:
-        console.print(f"  [dim]SKIP[/dim]  Twitter API (optional — enables real-time news stream)")
+        console.print("  [dim]SKIP[/dim]  Twitter API (optional - enables real-time news stream)")
 
-    # 7. Telegram (optional)
-    has_telegram = bool(config.TELEGRAM_BOT_TOKEN)
-    if has_telegram:
-        console.print(f"  [bright_green]PASS[/bright_green]  Telegram bot token set")
+    if config.TELEGRAM_BOT_TOKEN:
+        console.print("  [bright_green]PASS[/bright_green]  Telegram bot token set")
     else:
-        console.print(f"  [dim]SKIP[/dim]  Telegram bot (optional — enables channel monitoring)")
+        console.print("  [dim]SKIP[/dim]  Telegram bot (optional - enables channel monitoring)")
 
-    # 8. Polymarket API
     try:
         from markets import fetch_active_markets
-        mkts = fetch_active_markets(limit=5)
-        console.print(f"  [bright_green]PASS[/bright_green]  Polymarket API ({len(mkts)} markets)")
-    except Exception as e:
-        console.print(f"  [yellow]WARN[/yellow]  Polymarket API — {e}")
 
-    # 9. Niche market filter
+        markets = fetch_active_markets(limit=5)
+        console.print(f"  [bright_green]PASS[/bright_green]  Polymarket API ({len(markets)} markets)")
+    except Exception as e:
+        console.print(f"  [yellow]WARN[/yellow]  Polymarket API - {e}")
+
     try:
         from markets import fetch_active_markets, filter_by_categories
-        all_m = fetch_active_markets(limit=100)
-        cat = filter_by_categories(all_m)
-        niche = [m for m in cat if config.MIN_VOLUME_USD <= m.volume <= config.MAX_VOLUME_USD]
+
+        all_markets = fetch_active_markets(limit=100)
+        categorized = filter_by_categories(all_markets)
+        niche = [m for m in categorized if config.MIN_VOLUME_USD <= m.volume <= config.MAX_VOLUME_USD]
         console.print(f"  [bright_green]PASS[/bright_green]  Niche filter ({len(niche)} markets in range)")
     except Exception as e:
-        console.print(f"  [yellow]WARN[/yellow]  Niche filter — {e}")
+        console.print(f"  [yellow]WARN[/yellow]  Niche filter - {e}")
 
-    # 10. Polymarket trading credentials (optional)
-    has_poly = bool(config.POLYMARKET_API_KEY)
-    if has_poly:
-        console.print(f"  [bright_green]PASS[/bright_green]  Polymarket trading credentials set")
+    if config.POLYMARKET_API_KEY:
+        console.print("  [bright_green]PASS[/bright_green]  Polymarket trading credentials set")
     else:
-        console.print(f"  [dim]SKIP[/dim]  Polymarket trading credentials (optional — needed for --live)")
+        console.print("  [dim]SKIP[/dim]  Polymarket trading credentials (optional - needed for --live)")
 
-    # 11. SQLite
     try:
-        import logger as _
-        console.print(f"  [bright_green]PASS[/bright_green]  SQLite database (V2 schema)")
+        import logger as _  # noqa: F401
+
+        console.print("  [bright_green]PASS[/bright_green]  SQLite database (V2 schema)")
     except Exception as e:
-        console.print(f"  [red]FAIL[/red]  SQLite — {e}")
+        console.print(f"  [red]FAIL[/red]  SQLite - {e}")
         all_good = False
 
-    # Summary
     console.print()
     if all_good:
         console.print(Panel(
@@ -257,9 +255,9 @@ def cmd_verify(args):
             "You're ready to go. Run:\n"
             "  python cli.py watch             # V2: Event-driven pipeline\n"
             "  python cli.py run               # V1: Synchronous pipeline\n"
-            "  python cli.py dashboard          # Live terminal dashboard\n"
-            "  python cli.py backtest           # Validate strategy\n"
-            "  python cli.py watch --live       # Real trading (careful!)",
+            "  python cli.py dashboard         # Live terminal dashboard\n"
+            "  python cli.py backtest          # Validate strategy\n"
+            "  python cli.py watch --live      # Real trading (careful!)",
             style="bright_green",
         ))
     else:
@@ -302,8 +300,14 @@ def cmd_markets(args):
     table.add_column("NO", justify="right")
     table.add_column("Volume", justify="right")
 
-    for m in markets:
-        table.add_row(m.category, m.question[:60], f"{m.yes_price:.2f}", f"{m.no_price:.2f}", f"${m.volume:,.0f}")
+    for market in markets:
+        table.add_row(
+            market.category,
+            market.question[:60],
+            f"{market.yes_price:.2f}",
+            f"{market.no_price:.2f}",
+            f"${market.volume:,.0f}",
+        )
 
     console.print(table)
 
@@ -330,22 +334,22 @@ def cmd_trades(args):
     table.add_column("Lat.", justify="right", width=6)
     table.add_column("Status", width=8)
 
-    for t in trades:
-        cls = t.get("classification") or "—"
-        mat = f"{t.get('materiality', 0) or 0:.2f}"
-        src = (t.get("news_source") or "—")[:6]
-        lat = f"{t.get('total_latency_ms') or 0}ms"
+    for trade in trades:
+        classification = trade.get("classification") or "-"
+        materiality = f"{trade.get('materiality', 0) or 0:.2f}"
+        source = (trade.get("news_source") or "-")[:6]
+        latency = f"{trade.get('total_latency_ms') or 0}ms"
         table.add_row(
-            str(t["id"]),
-            t["market_question"][:35],
-            cls[:8],
-            mat,
-            t["side"],
-            f"{t['edge']:.1%}",
-            f"${t['amount_usd']:.2f}",
-            src,
-            lat,
-            t["status"][:8],
+            str(trade["id"]),
+            trade["market_question"][:35],
+            classification[:8],
+            materiality,
+            trade["side"],
+            f"{trade['edge']:.1%}",
+            f"${trade['amount_usd']:.2f}",
+            source,
+            latency,
+            trade["status"][:8],
         )
 
     console.print(table)
@@ -359,21 +363,21 @@ def cmd_stats(args):
     latency = logger.get_latency_stats()
     cal = logger.get_calibration_stats()
 
-    console.print(f"\n[bold]Pipeline Statistics[/bold]\n")
+    console.print("\n[bold]Pipeline Statistics[/bold]\n")
     console.print(f"  Total signals: {stats['total_trades']}")
     console.print(f"  Daily exposure: ${abs(daily):.2f}")
-    console.print(f"  By status:")
+    console.print("  By status:")
     for status, count in stats["by_status"].items():
         console.print(f"    {status}: {count}")
 
     if latency["count"] > 0:
-        console.print(f"\n  [bold]Latency:[/bold]")
+        console.print("\n  [bold]Latency:[/bold]")
         console.print(f"    Avg total: {latency['avg_total_ms']}ms")
         console.print(f"    Avg news: {latency['avg_news_ms']}ms")
         console.print(f"    Avg classification: {latency['avg_class_ms']}ms")
 
     if cal["total"] > 0:
-        console.print(f"\n  [bold]Calibration:[/bold]")
+        console.print("\n  [bold]Calibration:[/bold]")
         console.print(f"    Accuracy: {cal['accuracy']:.1f}% ({cal['total']} resolved)")
 
 
@@ -381,13 +385,11 @@ def main():
     parser = argparse.ArgumentParser(description="Polymarket Pipeline V2")
     sub = parser.add_subparsers(dest="command")
 
-    # watch (V2)
     p_watch = sub.add_parser("watch", help="V2: Event-driven pipeline (real-time)")
     p_watch.add_argument("--live", action="store_true", help="Enable live trading")
     p_watch.add_argument("--threshold", type=float, default=None, help="Materiality threshold override")
     p_watch.set_defaults(func=cmd_watch)
 
-    # run (V1)
     p_run = sub.add_parser("run", help="V1: Synchronous pipeline (RSS-based)")
     p_run.add_argument("--live", action="store_true", help="Enable live trading")
     p_run.add_argument("--max", type=int, default=10, help="Max markets to scan")
@@ -395,45 +397,36 @@ def main():
     p_run.add_argument("--threshold", type=float, default=None, help="Edge threshold override")
     p_run.set_defaults(func=cmd_run)
 
-    # dashboard
     p_dash = sub.add_parser("dashboard", help="Launch live terminal dashboard")
     p_dash.add_argument("--speed", type=float, default=60.0, help="Seconds between scan cycles")
     p_dash.set_defaults(func=cmd_dashboard)
 
-    # backtest
     p_bt = sub.add_parser("backtest", help="Backtest V2 strategy")
     p_bt.add_argument("--limit", type=int, default=30, help="Number of resolved markets")
     p_bt.add_argument("--category", type=str, default=None, help="Filter by category")
     p_bt.set_defaults(func=cmd_backtest)
 
-    # calibrate
     p_cal = sub.add_parser("calibrate", help="Show classification accuracy report")
     p_cal.set_defaults(func=cmd_calibrate)
 
-    # niche
     p_niche = sub.add_parser("niche", help="Browse niche markets (volume-filtered)")
     p_niche.set_defaults(func=cmd_niche)
 
-    # verify
-    p_verify = sub.add_parser("verify", help="Check API keys and connections")
+    p_verify = sub.add_parser("verify", help="Check all API keys and connections")
     p_verify.set_defaults(func=cmd_verify)
 
-    # scrape
     p_scrape = sub.add_parser("scrape", help="Test the news scraper")
     p_scrape.add_argument("--hours", type=int, default=6, help="Lookback hours")
     p_scrape.set_defaults(func=cmd_scrape)
 
-    # markets
     p_markets = sub.add_parser("markets", help="View all available markets")
     p_markets.add_argument("--max", type=int, default=50, help="Max markets to fetch")
     p_markets.set_defaults(func=cmd_markets)
 
-    # trades
     p_trades = sub.add_parser("trades", help="View trade log")
     p_trades.add_argument("--limit", type=int, default=20, help="Number of trades to show")
     p_trades.set_defaults(func=cmd_trades)
 
-    # stats
     p_stats = sub.add_parser("stats", help="Performance statistics")
     p_stats.set_defaults(func=cmd_stats)
 

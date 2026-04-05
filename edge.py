@@ -33,7 +33,7 @@ def detect_edge(
     reasoning: str = "",
     headlines: str = "",
 ) -> Signal | None:
-    """V1: Compare Claude's confidence against market price."""
+    """V1: Compare the model confidence against market price."""
     market_price = market.yes_price
     edge = claude_score - market_price
 

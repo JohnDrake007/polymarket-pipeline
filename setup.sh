@@ -1,6 +1,5 @@
 #!/bin/bash
-# Polymarket Pipeline V2 — One-Command Setup
-# Usage: bash setup.sh
+# Polymarket Pipeline V2 setup
 
 set -e
 
@@ -11,15 +10,14 @@ NC='\033[0m'
 BOLD='\033[1m'
 
 echo ""
-echo -e "${GREEN}${BOLD}  POLYMARKET PIPELINE V2 — SETUP${NC}"
+echo -e "${GREEN}${BOLD}  POLYMARKET PIPELINE V2 - SETUP${NC}"
 echo -e "${GREEN}  Breaking News Detector + AI Classifier + Niche Market Trader${NC}"
 echo ""
 
-# --- Check Python ---
 PYTHON=""
 for cmd in python3.12 python3.11 python3.10 python3; do
-    if command -v $cmd &> /dev/null; then
-        version=$($cmd --version 2>&1 | awk '{print $2}')
+    if command -v "$cmd" &> /dev/null; then
+        version=$("$cmd" --version 2>&1 | awk '{print $2}')
         major=$(echo "$version" | cut -d. -f1)
         minor=$(echo "$version" | cut -d. -f2)
         if [ "$major" -ge 3 ] && [ "$minor" -ge 9 ]; then
@@ -31,49 +29,42 @@ done
 
 if [ -z "$PYTHON" ]; then
     echo -e "${RED}ERROR: Python 3.9+ is required.${NC}"
-    echo "Install it with: brew install python@3.12"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Found $($PYTHON --version)"
+echo -e "${GREEN}OK${NC} Found $("$PYTHON" --version)"
 
-# --- Create virtual environment ---
 if [ ! -d ".venv" ]; then
     echo -e "${YELLOW}Creating virtual environment...${NC}"
-    $PYTHON -m venv .venv
-    echo -e "${GREEN}✓${NC} Virtual environment created"
+    "$PYTHON" -m venv .venv
+    echo -e "${GREEN}OK${NC} Virtual environment created"
 else
-    echo -e "${GREEN}✓${NC} Virtual environment exists"
+    echo -e "${GREEN}OK${NC} Virtual environment exists"
 fi
 
 source .venv/bin/activate
 
-# --- Install dependencies ---
 echo -e "${YELLOW}Installing dependencies...${NC}"
 pip install --upgrade pip -q 2>/dev/null
 pip install -r requirements.txt -q 2>/dev/null
-echo -e "${GREEN}✓${NC} Dependencies installed"
+echo -e "${GREEN}OK${NC} Dependencies installed"
 
-# --- Setup .env ---
 if [ -f ".env" ]; then
-    echo -e "${GREEN}✓${NC} .env file exists"
+    echo -e "${GREEN}OK${NC} .env file exists"
 else
     echo ""
     echo -e "${BOLD}Let's configure your API keys.${NC}"
     echo ""
 
-    # Anthropic
-    echo -e "${YELLOW}1. Anthropic API Key${NC} (required — get one at console.anthropic.com)"
-    read -p "   Enter your Anthropic API key: " ANTHROPIC_KEY
+    echo -e "${YELLOW}1. Gemini API Key${NC} (required)"
+    read -p "   Enter your Gemini API key: " GEMINI_KEY
     echo ""
 
-    # Twitter (optional)
-    echo -e "${YELLOW}2. Twitter API v2 Bearer Token${NC} (optional — enables real-time news stream)"
+    echo -e "${YELLOW}2. Twitter API v2 Bearer Token${NC} (optional)"
     read -p "   Enter Twitter bearer token (or press Enter to skip): " TWITTER_KEY
     echo ""
 
-    # Telegram (optional)
-    echo -e "${YELLOW}3. Telegram Bot Token${NC} (optional — enables channel monitoring)"
+    echo -e "${YELLOW}3. Telegram Bot Token${NC} (optional)"
     read -p "   Enter Telegram bot token (or press Enter to skip): " TELEGRAM_KEY
     TELEGRAM_CHANNELS=""
     if [ -n "$TELEGRAM_KEY" ]; then
@@ -81,8 +72,7 @@ else
     fi
     echo ""
 
-    # Polymarket (optional)
-    echo -e "${YELLOW}4. Polymarket API Credentials${NC} (optional — needed only for live trading)"
+    echo -e "${YELLOW}4. Polymarket API Credentials${NC} (optional, live trading only)"
     read -p "   Enter Polymarket API key (or press Enter to skip): " POLY_KEY
     POLY_SECRET=""
     POLY_PASS=""
@@ -94,24 +84,26 @@ else
     fi
     echo ""
 
-    # NewsAPI (optional)
-    echo -e "${YELLOW}5. NewsAPI Key${NC} (optional — broader RSS coverage, newsapi.org)"
+    echo -e "${YELLOW}5. NewsAPI Key${NC} (optional)"
     read -p "   Enter NewsAPI key (or press Enter to skip): " NEWSAPI
     echo ""
 
-    # Write .env
     cat > .env << ENVEOF
-# Anthropic (required)
-ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
+# Gemini (required)
+GEMINI_API_KEY=${GEMINI_KEY}
 
-# Twitter API v2 (optional — real-time news)
+# Optional model overrides
+CLASSIFICATION_MODEL=gemini-3-flash-preview
+SCORING_MODEL=gemini-3.1-pro-preview
+
+# Twitter API v2 (optional)
 TWITTER_BEARER_TOKEN=${TWITTER_KEY}
 
-# Telegram (optional — channel monitoring)
+# Telegram (optional)
 TELEGRAM_BOT_TOKEN=${TELEGRAM_KEY}
 TELEGRAM_CHANNEL_IDS=${TELEGRAM_CHANNELS}
 
-# Polymarket CLOB API (optional — live trading)
+# Polymarket CLOB API (optional)
 POLYMARKET_API_KEY=${POLY_KEY}
 POLYMARKET_API_SECRET=${POLY_SECRET}
 POLYMARKET_API_PASSPHRASE=${POLY_PASS}
@@ -133,22 +125,21 @@ MATERIALITY_THRESHOLD=0.6
 SPEED_TARGET_SECONDS=5
 ENVEOF
 
-    echo -e "${GREEN}✓${NC} .env file created"
+    echo -e "${GREEN}OK${NC} .env file created"
 fi
 
-# --- Verify ---
 echo ""
 echo -e "${YELLOW}Running verification...${NC}"
 echo ""
-$PYTHON cli.py verify
+"$PYTHON" cli.py verify
 
 echo ""
 echo -e "${GREEN}${BOLD}  SETUP COMPLETE${NC}"
 echo ""
 echo "  Next steps:"
 echo "    source .venv/bin/activate"
-echo "    python cli.py watch             # V2: Real-time event-driven pipeline"
-echo "    python cli.py run               # V1: Synchronous pipeline"
-echo "    python cli.py dashboard         # Live terminal dashboard"
-echo "    python cli.py backtest          # Validate strategy first"
+echo "    python cli.py watch"
+echo "    python cli.py run"
+echo "    python cli.py dashboard"
+echo "    python cli.py backtest"
 echo ""

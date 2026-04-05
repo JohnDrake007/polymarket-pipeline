@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- Anthropic ---
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+# --- Gemini ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # --- Polymarket CLOB ---
 POLYMARKET_API_KEY = os.getenv("POLYMARKET_API_KEY", "")
@@ -47,8 +47,8 @@ MAX_VOLUME_USD = float(os.getenv("MAX_VOLUME_USD", "500000"))
 MIN_VOLUME_USD = float(os.getenv("MIN_VOLUME_USD", "1000"))
 MATERIALITY_THRESHOLD = float(os.getenv("MATERIALITY_THRESHOLD", "0.6"))
 SPEED_TARGET_SECONDS = float(os.getenv("SPEED_TARGET_SECONDS", "5"))
-CLASSIFICATION_MODEL = "claude-haiku-4-5-20251001"
-SCORING_MODEL = "claude-sonnet-4-6-20250514"
+CLASSIFICATION_MODEL = os.getenv("CLASSIFICATION_MODEL", "gemini-3-flash-preview")
+SCORING_MODEL = os.getenv("SCORING_MODEL", "gemini-3.1-pro-preview")
 
 # --- Categories to track ---
 MARKET_CATEGORIES = [

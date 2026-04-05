@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-import json
-
-import anthropic
-
 import config
+from gemini_client import generate_json
 from scraper import NewsItem
 from markets import Market
-
-
-client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
 SCORING_PROMPT = """You are a prediction market analyst. Your job is to estimate the probability that a specific market question will resolve YES, based on recent news headlines.
 
@@ -25,7 +19,7 @@ YES token price: {yes_price:.2f} (market's implied probability: {yes_price:.0%})
 ## Instructions
 1. Analyze each headline for relevance to the market question.
 2. Consider base rates, recency of news, and source credibility.
-3. Form an independent probability estimate — do NOT anchor to the current market price.
+3. Form an independent probability estimate and do not anchor to the current market price.
 4. Be calibrated: 0.50 means you have no information, 0.90+ means near certainty.
 
 Respond with ONLY valid JSON in this exact format:
@@ -35,9 +29,26 @@ Respond with ONLY valid JSON in this exact format:
   "relevant_headlines": [<indices of relevant headlines, 0-indexed>]
 }}"""
 
+SCORING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+        },
+        "reasoning": {"type": "string"},
+        "relevant_headlines": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 0},
+        },
+    },
+    "required": ["confidence", "reasoning", "relevant_headlines"],
+}
+
 
 def score_market(market: Market, news: list[NewsItem]) -> dict:
-    """Score a market question against recent news using Claude."""
+    """Score a market question against recent news using Gemini."""
     headlines_text = "\n".join(
         f"[{i}] [{item.source}] ({item.age_hours():.1f}h ago) {item.headline}"
         for i, item in enumerate(news)
@@ -46,7 +57,7 @@ def score_market(market: Market, news: list[NewsItem]) -> dict:
     if not headlines_text.strip():
         return {
             "confidence": 0.5,
-            "reasoning": "No relevant news found — returning baseline.",
+            "reasoning": "No relevant news found - returning baseline.",
             "relevant_headlines": [],
         }
 
@@ -58,26 +69,16 @@ def score_market(market: Market, news: list[NewsItem]) -> dict:
     )
 
     try:
-        response = client.messages.create(
-            model=config.CLAUDE_MODEL,
-            max_tokens=500,
+        result = generate_json(
+            model=config.SCORING_MODEL,
+            prompt=prompt,
+            schema=SCORING_SCHEMA,
             temperature=0.2,
-            messages=[{"role": "user", "content": prompt}],
         )
-        text = response.content[0].text.strip()
-
-        # Extract JSON from response (handle markdown code blocks)
-        if "```" in text:
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-
-        result = json.loads(text)
         result["confidence"] = max(0.0, min(1.0, float(result["confidence"])))
         return result
 
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
+    except (KeyError, TypeError, ValueError) as e:
         return {
             "confidence": 0.5,
             "reasoning": f"Parsing error: {e}",
