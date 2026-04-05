@@ -42,6 +42,7 @@ class MarketWatcher:
             "ws_messages": 0,
             "price_updates": 0,
             "market_refreshes": 0,
+            "ws_non_json": 0,
         }
 
     def get_niche_markets(self, markets: list[Market]) -> list[Market]:
@@ -116,7 +117,9 @@ class MarketWatcher:
                         try:
                             msg = await asyncio.wait_for(ws.recv(), timeout=10)
                             self.stats["ws_messages"] += 1
-                            data = json.loads(msg)
+                            data = self._parse_ws_message(msg)
+                            if data is None:
+                                continue
                             self._handle_ws_message(data)
                         except asyncio.TimeoutError:
                             # Send ping
@@ -126,6 +129,46 @@ class MarketWatcher:
                 self._ws_connected = False
                 log.warning(f"[watcher] WebSocket error: {e}, reconnecting in 5s")
                 await asyncio.sleep(5)
+
+    def _parse_ws_message(self, msg) -> dict | None:
+        """Best-effort parsing for WebSocket frames.
+
+        Polymarket can emit non-price frames such as heartbeats, acknowledgements,
+        or empty payloads. Those should not tear down the connection.
+        """
+        if msg is None:
+            return None
+
+        if isinstance(msg, bytes):
+            try:
+                msg = msg.decode("utf-8", errors="ignore")
+            except Exception:
+                self.stats["ws_non_json"] += 1
+                return None
+
+        if not isinstance(msg, str):
+            return msg if isinstance(msg, dict) else None
+
+        text = msg.strip()
+        if not text:
+            self.stats["ws_non_json"] += 1
+            return None
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            self.stats["ws_non_json"] += 1
+            preview = text[:120].replace("\n", "\\n")
+            log.debug(f"[watcher] Ignoring non-JSON WS frame: {preview}")
+            return None
+
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    self._handle_ws_message(item)
+            return None
+
+        return data if isinstance(data, dict) else None
 
     def _handle_ws_message(self, data: dict):
         """Process a WebSocket price update."""
