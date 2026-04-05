@@ -3,8 +3,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- Gemini ---
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+def _get_env(name: str, default: str = "") -> str:
+    value = os.getenv(name)
+    if value is not None:
+        return value
+    return os.getenv(name.lower(), default)
+
+
+def _resolve_model(name: str, default: str) -> str:
+    aliases = {
+        "gemini-3-flash-preview": "google/gemini-2.5-flash",
+        "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+    }
+    value = _get_env(name, "").strip()
+    if not value:
+        return default
+    return aliases.get(value, value)
+
+
+# --- OpenRouter ---
+OPENROUTER_API_KEY = _get_env("OPENROUTER_API_KEY", "")
 
 # --- Polymarket CLOB ---
 POLYMARKET_API_KEY = os.getenv("POLYMARKET_API_KEY", "")
@@ -47,8 +66,8 @@ MAX_VOLUME_USD = float(os.getenv("MAX_VOLUME_USD", "500000"))
 MIN_VOLUME_USD = float(os.getenv("MIN_VOLUME_USD", "1000"))
 MATERIALITY_THRESHOLD = float(os.getenv("MATERIALITY_THRESHOLD", "0.6"))
 SPEED_TARGET_SECONDS = float(os.getenv("SPEED_TARGET_SECONDS", "5"))
-CLASSIFICATION_MODEL = os.getenv("CLASSIFICATION_MODEL", "gemini-3-flash-preview")
-SCORING_MODEL = os.getenv("SCORING_MODEL", "gemini-3.1-pro-preview")
+CLASSIFICATION_MODEL = _resolve_model("CLASSIFICATION_MODEL", "google/gemini-2.5-flash")
+SCORING_MODEL = _resolve_model("SCORING_MODEL", "google/gemini-3.1-pro-preview")
 
 # --- Categories to track ---
 MARKET_CATEGORIES = [

@@ -56,8 +56,8 @@ else
     echo -e "${BOLD}Let's configure your API keys.${NC}"
     echo ""
 
-    echo -e "${YELLOW}1. Gemini API Key${NC} (required)"
-    read -p "   Enter your Gemini API key: " GEMINI_KEY
+    echo -e "${YELLOW}1. OpenRouter API Key${NC} (required)"
+    read -p "   Enter your OpenRouter API key: " OPENROUTER_KEY
     echo ""
 
     echo -e "${YELLOW}2. Twitter API v2 Bearer Token${NC} (optional)"
@@ -89,12 +89,12 @@ else
     echo ""
 
     cat > .env << ENVEOF
-# Gemini (required)
-GEMINI_API_KEY=${GEMINI_KEY}
+# OpenRouter (required)
+OPENROUTER_API_KEY=${OPENROUTER_KEY}
 
 # Optional model overrides
-CLASSIFICATION_MODEL=gemini-3-flash-preview
-SCORING_MODEL=gemini-3.1-pro-preview
+CLASSIFICATION_MODEL=google/gemini-2.5-flash
+SCORING_MODEL=google/gemini-3.1-pro-preview
 
 # Twitter API v2 (optional)
 TWITTER_BEARER_TOKEN=${TWITTER_KEY}

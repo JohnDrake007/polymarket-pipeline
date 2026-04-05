@@ -1,7 +1,4 @@
-"""
-Gemini classification engine that replaces probability estimation with
-direction classification.
-"""
+"""OpenRouter-backed classification engine."""
 from __future__ import annotations
 
 import logging
@@ -9,8 +6,8 @@ import time
 from dataclasses import dataclass
 
 import config
-from gemini_client import generate_json
 from markets import Market
+from openrouter_client import generate_json
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +79,7 @@ def classify(headline: str, market: Market, source: str = "unknown") -> Classifi
             prompt=prompt,
             schema=CLASSIFICATION_SCHEMA,
             temperature=0.1,
+            max_tokens=200,
         )
         latency = int((time.time() - start) * 1000)
 

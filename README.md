@@ -7,7 +7,7 @@ Breaking News (Twitter / Telegram / RSS)
         -> (< 5 seconds)
 Match to niche markets (< $500K volume)
         ->
-Gemini Classification: bullish / bearish / neutral + materiality
+OpenRouter-backed Gemini classification: bullish / bearish / neutral + materiality
         ->
 Edge detection + quarter-Kelly sizing
         ->
@@ -20,7 +20,7 @@ V1 scraped RSS feeds, asked the model for a probability estimate, and competed o
 
 V2 inverts all three:
 - **Speed**: Real-time Twitter and Telegram streams instead of stale RSS.
-- **Classification**: Gemini classifies "bullish or bearish?" instead of trying to be a direct probability estimator.
+- **Classification**: OpenRouter routes the request to Gemini-class models for "bullish or bearish?" classification instead of treating the model as a direct probability estimator.
 - **Niche markets**: Only trades markets under $500K volume where the crowd is smaller and slower.
 
 ## Setup
@@ -47,9 +47,9 @@ cp .env.example .env
 Add your keys to `.env`:
 
 ```env
-GEMINI_API_KEY=your-gemini-api-key
-CLASSIFICATION_MODEL=gemini-3-flash-preview
-SCORING_MODEL=gemini-3.1-pro-preview
+OPENROUTER_API_KEY=your-openrouter-api-key
+CLASSIFICATION_MODEL=google/gemini-2.5-flash
+SCORING_MODEL=google/gemini-3.1-pro-preview
 TWITTER_BEARER_TOKEN=
 TELEGRAM_BOT_TOKEN=
 POLYMARKET_API_KEY=
@@ -70,7 +70,7 @@ python cli.py watch
 python cli.py watch --live
 ```
 
-The `watch` command runs indefinitely. It connects to the configured news sources, matches headlines to niche Polymarket markets, classifies each event with Gemini, and executes trades when it finds edge.
+The `watch` command runs indefinitely. It connects to the configured news sources, matches headlines to niche Polymarket markets, classifies each event through OpenRouter, and executes trades when it finds edge.
 
 ### V1: synchronous pipeline
 
@@ -98,7 +98,7 @@ python cli.py run --max 15 --hours 12
 ```text
 news_stream.py      Real-time news: Twitter API v2, Telegram, RSS fallback
 market_watcher.py   Polymarket WebSocket: live prices, niche filter, momentum
-classifier.py       Gemini classification: bullish / bearish / neutral + materiality
+classifier.py       OpenRouter-backed classification: bullish / bearish / neutral + materiality
 matcher.py          Routes breaking news to relevant markets
 edge.py             Edge detection + Kelly sizing
 executor.py         Trade execution: dry-run + live CLOB orders
@@ -115,7 +115,7 @@ cli.py              Command-line interface
 
 1. News detection: Real-time streams from Twitter, Telegram, and RSS fallback feed the pipeline.
 2. Market matching: Each headline is matched to active niche markets by keyword overlap.
-3. Classification: Gemini is asked whether the news is bullish, bearish, or irrelevant to the market question, plus how material it is.
+3. Classification: an OpenRouter model is asked whether the news is bullish, bearish, or irrelevant to the market question, plus how material it is.
 4. Edge detection: Signals are generated only when direction, materiality, and price room all line up.
 5. Execution: Dry-run by default. Live mode places orders via the Polymarket CLOB API.
 6. Calibration: As markets resolve, the system tracks whether classifications were correct.
@@ -132,8 +132,8 @@ cli.py              Command-line interface
 | `MIN_VOLUME_USD` | `1000` | Skip dead markets |
 | `MATERIALITY_THRESHOLD` | `0.6` | Minimum materiality to act on |
 | `SPEED_TARGET_SECONDS` | `5` | Target news-to-trade latency |
-| `CLASSIFICATION_MODEL` | `gemini-3-flash-preview` | Model used for headline classification |
-| `SCORING_MODEL` | `gemini-3.1-pro-preview` | Model used for V1 scoring |
+| `CLASSIFICATION_MODEL` | `google/gemini-2.5-flash` | OpenRouter model used for headline classification |
+| `SCORING_MODEL` | `google/gemini-3.1-pro-preview` | OpenRouter model used for V1 scoring |
 
 ## Safety
 

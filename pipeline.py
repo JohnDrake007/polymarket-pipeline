@@ -211,7 +211,7 @@ def run_pipeline(
         score_result = score_market(market, relevant_news)
         model_score = score_result["confidence"]
         reasoning = score_result["reasoning"]
-        console.print(f"   Gemini score: {model_score:.2f}  (market: {market.yes_price:.2f})")
+        console.print(f"   Model score: {model_score:.2f}  (market: {market.yes_price:.2f})")
 
         headlines_str = "\n".join(n.headline for n in relevant_news[:5])
         signal = detect_edge(market, model_score, reasoning, headlines_str)

@@ -163,7 +163,7 @@ def cmd_verify(args):
         all_good = False
 
     deps_ok = True
-    for mod in ["google.genai", "feedparser", "httpx", "rich", "dotenv", "websockets", "tweepy", "aiohttp"]:
+    for mod in ["openrouter", "feedparser", "httpx", "rich", "dotenv", "websockets", "tweepy", "aiohttp"]:
         try:
             importlib.import_module(mod)
         except ImportError:
@@ -179,24 +179,26 @@ def cmd_verify(args):
     if not env_exists:
         all_good = False
 
-    has_key = bool(config.GEMINI_API_KEY) and config.GEMINI_API_KEY != "your-gemini-api-key"
+    has_key = bool(config.OPENROUTER_API_KEY) and config.OPENROUTER_API_KEY != "your-openrouter-api-key"
     if has_key:
         try:
-            from google import genai
+            from openrouter import OpenRouter
 
-            client = genai.Client(api_key=config.GEMINI_API_KEY)
-            response = client.models.generate_content(
-                model=config.CLASSIFICATION_MODEL,
-                contents="Say OK",
-            )
-            if not (response.text or "").strip():
-                raise RuntimeError("Empty response from Gemini")
-            console.print("  [bright_green]PASS[/bright_green]  Gemini API key (verified)")
+            with OpenRouter(api_key=config.OPENROUTER_API_KEY) as client:
+                response = client.chat.send(
+                    model=config.CLASSIFICATION_MODEL,
+                    messages=[{"role": "user", "content": "Say OK"}],
+                    max_tokens=10,
+                )
+            text = response.choices[0].message.content if response.choices else ""
+            if not text:
+                raise RuntimeError("Empty response from OpenRouter")
+            console.print("  [bright_green]PASS[/bright_green]  OpenRouter API key (verified)")
         except Exception as e:
-            console.print(f"  [red]FAIL[/red]  Gemini API key - {type(e).__name__}: {e}")
+            console.print(f"  [red]FAIL[/red]  OpenRouter API key - {type(e).__name__}: {e}")
             all_good = False
     else:
-        console.print("  [red]FAIL[/red]  Gemini API key not set")
+        console.print("  [red]FAIL[/red]  OpenRouter API key not set")
         all_good = False
 
     try:

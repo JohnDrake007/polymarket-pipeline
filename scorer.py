@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import config
-from gemini_client import generate_json
 from scraper import NewsItem
 from markets import Market
+from openrouter_client import generate_json
 
 SCORING_PROMPT = """You are a prediction market analyst. Your job is to estimate the probability that a specific market question will resolve YES, based on recent news headlines.
 
@@ -48,7 +48,7 @@ SCORING_SCHEMA = {
 
 
 def score_market(market: Market, news: list[NewsItem]) -> dict:
-    """Score a market question against recent news using Gemini."""
+    """Score a market question against recent news using OpenRouter."""
     headlines_text = "\n".join(
         f"[{i}] [{item.source}] ({item.age_hours():.1f}h ago) {item.headline}"
         for i, item in enumerate(news)
@@ -74,6 +74,7 @@ def score_market(market: Market, news: list[NewsItem]) -> dict:
             prompt=prompt,
             schema=SCORING_SCHEMA,
             temperature=0.2,
+            max_tokens=500,
         )
         result["confidence"] = max(0.0, min(1.0, float(result["confidence"])))
         return result
